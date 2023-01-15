@@ -65,7 +65,7 @@ class JoyToServo(Node):
         if angle < 0:
             return 0
         elif angle > 180:
-            return 180:
+            return 180
 
         return angle
 
@@ -75,7 +75,7 @@ class JoyToServo(Node):
 
         self.get_logger().info(f"Publishing: Pan:{self.SERVO[1]}, Twist:{self.SERVO[0]}")
         msg = unconfined_msgs()
-        msd.data = self.SERVO
+        msg.data = self.SERVO
         self.servo_angle_publisher.publish(msg)
 
 

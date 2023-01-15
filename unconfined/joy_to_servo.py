@@ -1,11 +1,14 @@
 """ROS2 Node for publishing teleop commands from joystick to a topic /servo"""
 import cv2
+import zmq
 
 import rclpy
 from rclpy.node import Node
 
 from sensor_msgs.msg import Joy
 from std_msgs.msg import UInt8MultiArray as unconfined_msgs
+
+camera = cv2.VideoCapture(2)
 
 class JoyToServo(Node):
     """
@@ -23,14 +26,31 @@ class JoyToServo(Node):
         self.subscription = self.create_subscription(
                 Joy, "joy", self.teleop_cmd_caller, 10)
         self.subscription
-
+        
+        # Create publisher for publishing servo angles to /servo
         self.servo_angle_publisher = self.create_publisher(unconfined_msgs, "servo", 10)
         
+        # Callback time for servo_angle_callback which updates servo angles 
         servo_angle_publisher_callback_time = 0.1
         self.timer = self.create_timer(servo_angle_publisher_callback_time, 
                                        self.servo_angle_callback)
 
+        # stream portion
+        context = zmq.Context()
+        self.footage_socket = context.socket(zmq.PUB)
+        self.footage_socket.connect('tcp://192.168.1.137:5555')
+        
+        # update frames every 0.01 seconds
+        self.timer = self.create_timer(0.01,self.update_frames_callback)
+
     
+    def update_frames_callback(self):
+        
+        status, self.frame = camera.read()
+        encoded, buffer = cv2.imencode('.jpg', self.frame)
+        self.footage_socket.send(buffer)
+    
+
     def teleop_cmd_caller(self, joy):
         """Calls the teleop_cmd_map function and updates self.SERVO"""
     
@@ -86,6 +106,9 @@ def main(args=None):
     joy_to_drive_node = JoyToServo()
 
     rclpy.spin(joy_to_drive_node)
+    
+    camera.release()
+    cv2.destroyAllWindows()
 
     joy_to_drive_node.destroy_node()
     rclpy.shutdown()

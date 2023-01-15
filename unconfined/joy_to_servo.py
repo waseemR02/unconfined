@@ -4,7 +4,7 @@ import cv2
 import rclpy
 from rclpy.node import Node
 
-from sensor_msgs.msgs import Joy
+from sensor_msgs.msg import Joy
 from std_msgs.msg import UInt8MultiArray as unconfined_msgs
 
 class JoyToServo(Node):
@@ -24,7 +24,7 @@ class JoyToServo(Node):
                 Joy, "joy", self.teleop_cmd_caller, 10)
         self.subscription
 
-        self.servo_angle_publisher = self.create_publisher(servo_angle, "servo", 10)
+        self.servo_angle_publisher = self.create_publisher(unconfined_msgs, "servo", 10)
         
         servo_angle_publisher_callback_time = 0.1
         self.timer = self.create_timer(servo_angle_publisher_callback_time, 
@@ -57,7 +57,7 @@ class JoyToServo(Node):
         elif pan_axis == 1:
             required_servo_state[1] = current_servo_state[1] - increment
 
-        return map(self._set_under_range, required_servo_state)
+        return list(map(self._set_under_range, required_servo_state))
         
 
     def _set_under_range(self, angle):

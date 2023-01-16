@@ -27,7 +27,7 @@ class JoyToServo(Node):
         # default values for the servo_angle
         self.SERVO = [90,90]
         self.subscription = self.create_subscription(
-                Joy, "joy", self.teleop_cmd_caller, 10)
+                Joy, "joy", self.cmd_updater, 10)
         self.subscription
         
         # Create publisher for publishing servo angles to /servo
@@ -57,7 +57,7 @@ class JoyToServo(Node):
         self.footage_socket.send(buffer)
     
 
-    def cmd_update(self,joy):
+    def cmd_updater(self,joy):
         """Calls teleop_cmd_caller() and panorama shot according to joy commands"""
         if joy.buttons[10] == 1:
             self.take_panorama = True
@@ -127,7 +127,7 @@ class JoyToServo(Node):
             self.take_panorama = False
 
 
-    def panorama_mode(self)
+    def panorama_mode(self):
         
         # set increment of angle to 1
         increment = 1

@@ -5,6 +5,9 @@ from datetime import datetime
 
 import rclpy
 from rclpy.node import Node
+from rclpy.executors import MultiThreadedExecutor
+
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
 from sensor_msgs.msg import Joy
 from std_msgs.msg import UInt8MultiArray as unconfined_msgs
@@ -36,7 +39,7 @@ class JoyToServo(Node):
         
         
         self.subscription = self.create_subscription(
-                Joy, "joy", self.cmd_updater, qos_profile=10, callback_group=callback_group_a)
+                Joy, "joy", self.cmd_updater, qos_profile=10)
         self.subscription
         
         # Create publisher for publishing servo angles to /servo
@@ -50,7 +53,7 @@ class JoyToServo(Node):
         # stream portion
         context = zmq.Context()
         self.footage_socket = context.socket(zmq.PUB)
-        self.footage_socket.connect('tcp://192.168.1.137:5555')
+        self.footage_socket.connect('tcp://192.168.0.106:5555')
         
         # update frames every 0.01 seconds
         self.timer = self.create_timer(0.01,self.update_frames_callback, callback_group=callback_group_a)
@@ -60,6 +63,7 @@ class JoyToServo(Node):
         self.called_panorama_shot_caller = False
         self.increment = 1
         self.current_taking_panorama = False
+        self.error_panorama = False
 
         # image list for stitching them later
         self.images = []
@@ -90,7 +94,7 @@ class JoyToServo(Node):
         if self.error_panorama:
             self.take_panorama = True
             self.get_logger().info(f"Error while stitching!! Trying again")
-
+            self.error_panorama = False
             
 
     def cmd_updater(self,joy):
@@ -158,7 +162,9 @@ class JoyToServo(Node):
         if not self.SERVO[1] < 120:
             self.take_panorama = False
             self.current_taking_panorama = False
+            self.get_logger().info("Started stitching images together")
             self.error_panorama = create_panorama(self.images,f"{datetime.now()}")
+            self.get_logger().info("Finished stitching images")
             self.images = []
 
 
@@ -168,7 +174,12 @@ def main(args=None):
 
     joy_to_servo_node = JoyToServo()
 
-    rclpy.spin(joy_to_servo_node)
+    # rclpy.spin(joy_to_servo_node)
+
+    executor = MultiThreadedExecutor()
+    executor.add_node(joy_to_servo_node)
+
+    executor.spin()
     
     camera.release()
     cv2.destroyAllWindows()

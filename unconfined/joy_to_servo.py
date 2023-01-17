@@ -26,8 +26,17 @@ class JoyToServo(Node):
         
         # default values for the servo_angle
         self.SERVO = [90,90]
+        
+        # Creating two callback groups for asynchronous callback and independent flow
+        # callback_group_a includes update_frames_callback() and servo_angle_publisher() and cmd_updater()
+        # callback group_b includes the panorama_callback() 
+
+        callback_group_a = MutuallyExclusiveCallbackGroup()
+        callback_group_b = MutuallyExclusiveCallbackGroup()
+        
+        
         self.subscription = self.create_subscription(
-                Joy, "joy", self.cmd_updater, 10)
+                Joy, "joy", self.cmd_updater, qos_profile=10, callback_group=callback_group_a)
         self.subscription
         
         # Create publisher for publishing servo angles to /servo
@@ -36,7 +45,7 @@ class JoyToServo(Node):
         # Callback time for servo_angle_callback which updates servo angles 
         servo_angle_publisher_callback_time = 0.1
         self.timer = self.create_timer(servo_angle_publisher_callback_time, 
-                                       self.servo_angle_callback)
+                                       self.servo_angle_callback, callback_group=callback_group_a)
 
         # stream portion
         context = zmq.Context()
@@ -44,29 +53,51 @@ class JoyToServo(Node):
         self.footage_socket.connect('tcp://192.168.1.137:5555')
         
         # update frames every 0.01 seconds
-        self.timer = self.create_timer(0.01,self.update_frames_callback)
+        self.timer = self.create_timer(0.01,self.update_frames_callback, callback_group=callback_group_a)
 
         # panorama
         self.take_panorama = False
         self.called_panorama_shot_caller = False
-    
+        self.increment = 1
+        self.current_taking_panorama = False
+
+        # image list for stitching them later
+        self.images = []
+
+        # Timer for calling panorama_callback()
+        self.timer = self.create_timer(0.1, self.panorama_callback, callback_group=callback_group_b)
+
     def update_frames_callback(self):
-        
+        """
+        Read frames from camera and update self.frames every 0.1 seconds
+        """
         status, self.frame = camera.read()
         encoded, buffer = cv2.imencode('.jpg', self.frame)
         self.footage_socket.send(buffer)
     
+    def panorama_callback(self):
+        """
+        Check if take_panorama is true every 0.1 seconds and call panorama_mode() when true
+
+        Runs in a separate thread so it should block the program
+        """
+        if self.take_panorama:
+            if not self.current_taking_panorama:
+                self.current_taking_panorama = True
+                self.SERVO[1] = 20
+            self.panorama_mode()
+
+        if self.error_panorama:
+            self.take_panorama = True
+            self.get_logger().info(f"Error while stitching!! Trying again")
+
+            
 
     def cmd_updater(self,joy):
         """Calls teleop_cmd_caller() and panorama shot according to joy commands"""
         if joy.buttons[10] == 1:
-            self.take_panorama = True
-        
-        if self.take_panorama:
-            if not self.called_panorama_shot_caller:
-                self.called_panorama_shot_caller = True
-                self.panorama_shot_caller()
-        else:
+            self.take_panorama = True           
+        if not self.current_taking_panorama:
             self.teleop_cmd_caller(joy)
 
     def teleop_cmd_caller(self, joy):
@@ -117,46 +148,32 @@ class JoyToServo(Node):
         self.servo_angle_publisher.publish(msg)
 
 
-    def panorama_shot_caller(self):
-        """Starts updating the self.SERVO and collects self.frames to create a panorama"""
-        self.panorama_mode()
-        
-        self.called_panorama_shot_caller = False
-        
-        if not self.error_panorama:
-            self.take_panorama = False
-
-
     def panorama_mode(self):
-        
-        # set increment of angle to 1
-        increment = 1
-        
-        # set the initial pan state to 20 degrees
-        self.SERVO[1] = 20  
-        
-        # image list for stitching them later
-        images = []
+        """
+        Collect frames when called and append to self.images and stop when servo_angle is over 120 degrees
+        """
+        self.images.append(self.frame)
+        self.SERVO[1] += self.increment
 
-        while self.SERVO[1] <= 120:
-            images.append(self.frame)
-            self.SERVO[1] += increment
-
-        self.error_panorama = create_panorama(images,f"{datetime.now()}")
+        if not self.SERVO[1] < 120:
+            self.take_panorama = False
+            self.current_taking_panorama = False
+            self.error_panorama = create_panorama(self.images,f"{datetime.now()}")
+            self.images = []
 
 
 def main(args=None):
     """Driver code"""
     rclpy.init(args = args)
 
-    joy_to_drive_node = JoyToServo()
+    joy_to_servo_node = JoyToServo()
 
-    rclpy.spin(joy_to_drive_node)
+    rclpy.spin(joy_to_servo_node)
     
     camera.release()
     cv2.destroyAllWindows()
 
-    joy_to_drive_node.destroy_node()
+    joy_to_servo_node.destroy_node()
     rclpy.shutdown()
 
 if __name__ == "__main__":

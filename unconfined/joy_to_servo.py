@@ -14,7 +14,7 @@ from std_msgs.msg import UInt8MultiArray as unconfined_msgs
 
 from unconfined.stitch_image import create_panorama
 
-camera = cv2.VideoCapture(2)
+camera = cv2.VideoCapture(4)
 
 class JoyToServo(Node):
     """
@@ -53,7 +53,7 @@ class JoyToServo(Node):
         # stream portion
         context = zmq.Context()
         self.footage_socket = context.socket(zmq.PUB)
-        self.footage_socket.connect('tcp://192.168.0.106:5555')
+        self.footage_socket.connect('tcp://192.168.1.137:5555')
         
         # update frames every 0.01 seconds
         self.timer = self.create_timer(0.01,self.update_frames_callback, callback_group=callback_group_a)
@@ -146,7 +146,7 @@ class JoyToServo(Node):
     def servo_angle_callback(self):
         """Publish the required servo angles to /servo"""
 
-        self.get_logger().info(f"Publishing: Pan:{self.SERVO[1]}, Twist:{self.SERVO[0]}")
+        self.get_logger().info(f"Publishing: Pan:{self.SERVO[1]}, Tilt:{self.SERVO[0]}")
         msg = unconfined_msgs()
         msg.data = self.SERVO
         self.servo_angle_publisher.publish(msg)

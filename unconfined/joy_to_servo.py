@@ -57,6 +57,10 @@ class JoyToServo(Node):
         self.socket_ip = self.get_parameter("socket_ip").value
         self.socket_port = self.get_parameter("socket_port").value
         self.camera_id = self.get_parameter("camera_id").value
+        
+        # Print the params once the node starts
+        self.get_logger().info(f"Camera set to {self.camera_id}")
+        self.get_logger().info(f"Socket set to {self.socket_ip}:{self.socket_port}")
 
         # Create a VideoCapture object
         self.camera = cv2.VideoCapture(self.camera_id)

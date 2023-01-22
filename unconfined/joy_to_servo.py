@@ -12,7 +12,7 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from sensor_msgs.msg import Joy
 from std_msgs.msg import UInt8MultiArray as unconfined_msgs
 
-from unconfined.stitch_image import create_panorama
+from unconfined.stitch_image import PanoramaMaker
 
 class JoyToServo(Node):
     """
@@ -178,7 +178,7 @@ class JoyToServo(Node):
             self.take_panorama = False
             self.current_taking_panorama = False
             self.get_logger().info("Started stitching images together")
-            self.error_panorama = create_panorama(self.images,f"{datetime.now()}")
+            self.error_panorama = PanoramaMaker.create_panorama(self.images,f"{datetime.now()}")
             self.get_logger().info("Finished stitching images")
             self.images = []
     

@@ -14,8 +14,6 @@ from std_msgs.msg import UInt8MultiArray as unconfined_msgs
 
 from unconfined.stitch_image import create_panorama
 
-camera = cv2.VideoCapture(4)
-
 class JoyToServo(Node):
     """
     JoyToServo Node class
@@ -50,10 +48,23 @@ class JoyToServo(Node):
         self.timer = self.create_timer(servo_angle_publisher_callback_time, 
                                        self.servo_angle_callback, callback_group=callback_group_a)
 
+        # Create parameter list for socket_ip, socket_port and camera_id
+        self.declare_parameter("socket_ip", "192.168.1.99")
+        self.declare_parameter("socket_port", 5555)
+        self.declare_parameter("camera_id", 4)
+
+        # Get the parameters for socket_ip, socket_port and camera_id
+        self.socket_ip = self.get_parameter("socket_ip").value
+        self.socket_port = self.get_parameter("socket_port").value
+        self.camera_id = self.get_parameter("camera_id").value
+
+        # Create a VideoCapture object
+        self.camera = cv2.VideoCapture(self.camera_id)
+
         # stream portion
         context = zmq.Context()
         self.footage_socket = context.socket(zmq.PUB)
-        self.footage_socket.connect('tcp://192.168.1.137:5555')
+        self.footage_socket.connect('tcp://' + self.socket_ip + ':' + str(self.socket_port))
         
         # update frames every 0.01 seconds
         self.timer = self.create_timer(0.01,self.update_frames_callback, callback_group=callback_group_a)
@@ -75,7 +86,7 @@ class JoyToServo(Node):
         """
         Read frames from camera and update self.frames every 0.1 seconds
         """
-        status, self.frame = camera.read()
+        status, self.frame = self.camera.read()
         encoded, buffer = cv2.imencode('.jpg', self.frame)
         self.footage_socket.send(buffer)
     
@@ -166,7 +177,11 @@ class JoyToServo(Node):
             self.error_panorama = create_panorama(self.images,f"{datetime.now()}")
             self.get_logger().info("Finished stitching images")
             self.images = []
-
+    
+    def __del__(self):
+        """Destructor explicit call for releasing camera and destroying all windows"""
+        self.camera.release()
+        cv2.destroyAllWindows()
 
 def main(args=None):
     """Driver code"""
@@ -174,16 +189,14 @@ def main(args=None):
 
     joy_to_servo_node = JoyToServo()
 
-    # rclpy.spin(joy_to_servo_node)
-
+    # Create a MultiThreadedExecutor and add the node to it
     executor = MultiThreadedExecutor()
     executor.add_node(joy_to_servo_node)
 
+    # Spin the executor
     executor.spin()
     
-    camera.release()
-    cv2.destroyAllWindows()
-
+    # Destroy the node explicitly
     joy_to_servo_node.destroy_node()
     rclpy.shutdown()
 

@@ -11,7 +11,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'numpy', 'cv2', 'zmq'],
     zip_safe=True,
     maintainer='waseenR02',
     maintainer_email='waseem.riaz.9999@gmail.com',
@@ -20,7 +20,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'joy_to_servo = unconfined.joy_to_servo:main'
+            'joy_to_servo = unconfined.joy_to_servo:main',
+            'servo_to_spine = unconfined.servo_to_spine:main',
+            'view_stream = unconfined.view_stream:main'
         ],
     },
 )

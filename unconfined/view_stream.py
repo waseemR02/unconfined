@@ -8,8 +8,9 @@ import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from cv_bridge import CvBridge
 
-from sensor_msgs.msg import Joy
+from sensor_msgs.msg import Joy, Image
 from std_msgs.msg import UInt8MultiArray as unconfined_msgs
 
 from unconfined.stitch_image import PanoramaMaker
@@ -28,11 +29,20 @@ class ViewStream(Node):
         # create a separate callback group for the stream
         callback_group = rclpy.callback_groups.MutuallyExclusiveCallbackGroup()
 
+
+        # Create a subscription to the joy topic and the servo topic to cooridinate the panorama
         self.subscription = self.create_subscription(
                 Joy, "joy", self.panorama_check_callback, 10, callback_group=callback_group)
-        self.subscription
         self.subscription = self.create_subscription(
                 unconfined_msgs, "servo", self.panorama_mode, 10)
+        self.subscription
+
+
+        # Create a image publisher and a CvBridge object to convert the frames to ROS2 messages
+        # and publish them to stream
+        self.bridge = CvBridge()
+        self.image_pub = self.create_publisher(Image, "stream", 10)
+
 
         # Create parmaeter list for socket_ip and socket port and panorama_mode
         self.declare_parameter("socket_ip", "192.168.1.99")
@@ -78,10 +88,16 @@ class ViewStream(Node):
         Callback function for the timer to update self.recieved_frames
         """
         img = self.footage_socket.recv()
+
+        # Convert the recieved frames to a numpy array
         img = np.frombuffer(img, dtype=np.uint8)
-        self.frame = cv2.imdecode(img, 1)
-        cv2.imshow("Stream", self.frame)
-        cv2.waitKey(1)
+        
+        # Decode the frames to a cv2 image
+        self.recieved_frames = cv2.imdecode(img, 1)
+
+        # Publish the recieved frames to the stream topic
+        self.image_pub.publish(self.bridge.cv2_to_imgmsg(self.recieved_frames, "bgr8"))        
+
 
     def panorama_mode(self, servo):
         """
@@ -93,7 +109,7 @@ class ViewStream(Node):
             self.get_logger().info("Taking panorama...")
             
             if servo.data[1]%10 == 0 and servo.data[1] != 100:
-                self.images.append(self.frame)
+                self.images.append(self.recieved_frames)
             
             if servo.data[1] == 100:
                 self.get_logger().info("Stitching frames...")

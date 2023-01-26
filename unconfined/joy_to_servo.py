@@ -1,7 +1,6 @@
 """ROS2 Node for publishing teleop commands from joystick to a topic /servo"""
 import cv2
 import zmq
-from datetime import datetime
 
 import rclpy
 from rclpy.node import Node
@@ -12,7 +11,6 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from sensor_msgs.msg import Joy
 from std_msgs.msg import UInt8MultiArray as unconfined_msgs
 
-from unconfined.stitch_image import PanoramaMaker
 
 class JoyToServo(Node):
     """
@@ -78,10 +76,6 @@ class JoyToServo(Node):
         self.called_panorama_shot_caller = False
         self.increment = 1
         self.current_taking_panorama = False
-        self.error_panorama = False
-
-        # image list for stitching them later
-        self.images = []
 
         # Timer for calling panorama_callback()
         self.timer = self.create_timer(0.1, self.panorama_callback, callback_group=callback_group_b)
@@ -103,13 +97,8 @@ class JoyToServo(Node):
         if self.take_panorama:
             if not self.current_taking_panorama:
                 self.current_taking_panorama = True
-                self.SERVO[1] = 20
+                self.SERVO[1] = 18
             self.panorama_mode()
-
-        if self.error_panorama:
-            self.take_panorama = True
-            self.get_logger().info(f"Error while stitching!! Trying again")
-            self.error_panorama = False
             
 
     def cmd_updater(self,joy):
@@ -171,17 +160,13 @@ class JoyToServo(Node):
         """
         Collect frames when called and append to self.images and stop when servo_angle is over 120 degrees
         """
-        self.images.append(self.frame)
         self.SERVO[1] += self.increment
 
-        if not self.SERVO[1] < 120:
+        if not self.SERVO[1] < 100:
             self.take_panorama = False
             self.current_taking_panorama = False
-            self.get_logger().info("Started stitching images together")
-            self.error_panorama = PanoramaMaker.create_panorama(self.images,f"{datetime.now()}")
-            self.get_logger().info("Finished stitching images")
-            self.images = []
-    
+
+
     def __del__(self):
         """Destructor explicit call for releasing camera and destroying all windows"""
         self.camera.release()

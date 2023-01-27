@@ -1,5 +1,5 @@
 import json
-from socket import socket
+# from socket import socket
 import socket
 from numpy import interp 
 
@@ -25,7 +25,7 @@ class ServoToSpine(Node):
 
     def prepare_socket(self, addr):     
         """Connect to a UNIX socket on addr and return the socket object."""
-        sock =  socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock =  socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.connect(addr)
         return sock
 
@@ -38,8 +38,8 @@ class ServoToSpine(Node):
         pan_microseconds = interp(pan_degrees, [0,180], [500,2500])
         tilt_microseconds = interp(tilt_degrees, [0,180], [500,2500])
 
-        self.hardware_socket.sendall(json.dumps({"ServoWrite": {"servo": "digital_camera1_pan", "position": pan_microseconds}}).encode("utf8"))
-        self.hardware_socket.sendall(json.dumps({"ServoWrite": {"servo": "digital_camera1_tilt", "position": tilt_microseconds}}).encode("utf8"))
+        self.hardware_socket.sendall(json.dumps({"ServoWrite": {"servo": "digital_camera1_pan", "position": int(pan_microseconds)}}).encode("utf8"))
+        self.hardware_socket.sendall(json.dumps({"ServoWrite": {"servo": "digital_camera1_tilt", "position": int(tilt_microseconds)}}).encode("utf8"))
 
 def main(args=None):
     rclpy.init(args=args)

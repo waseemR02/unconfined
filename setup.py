@@ -11,7 +11,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
-    install_requires=['setuptools', 'numpy', 'cv2', 'zmq'],
+    install_requires=['setuptools', 'numpy'],
     zip_safe=True,
     maintainer='waseenR02',
     maintainer_email='waseem.riaz.9999@gmail.com',

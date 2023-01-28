@@ -81,7 +81,7 @@ class JoyToServo(Node):
         self.error_panorama = False
 
         # image list for stitching them later
-        self.images = []
+        # self.images = []
 
         # Timer for calling panorama_callback()
         self.timer = self.create_timer(0.1, self.panorama_callback, callback_group=callback_group_b)
@@ -106,10 +106,10 @@ class JoyToServo(Node):
                 self.SERVO[1] = 20
             self.panorama_mode()
 
-        if self.error_panorama:
-            self.take_panorama = True
-            self.get_logger().info(f"Error while stitching!! Trying again")
-            self.error_panorama = False
+        # if self.error_panorama:
+        #     self.take_panorama = True
+        #     self.get_logger().info(f"Error while stitching!! Trying again")
+        #     self.error_panorama = False
             
 
     def cmd_updater(self,joy):
@@ -171,16 +171,17 @@ class JoyToServo(Node):
         """
         Collect frames when called and append to self.images and stop when servo_angle is over 120 degrees
         """
-        self.images.append(self.frame)
+        # self.images.append(self.frame)
         self.SERVO[1] += self.increment
+        cv2.imwrite(f"{datetime.now()}.jpg", self.frame)
 
         if not self.SERVO[1] < 120:
             self.take_panorama = False
             self.current_taking_panorama = False
             self.get_logger().info("Started stitching images together")
-            self.error_panorama = PanoramaMaker.create_panorama(self.images,f"{datetime.now()}")
-            self.get_logger().info("Finished stitching images")
-            self.images = []
+            #self.error_panorama = PanoramaMaker.create_panorama(self.images,f"{datetime.now()}")
+            # self.get_logger().info("Finished stitching images")
+            # self.images = []
     
     def __del__(self):
         """Destructor explicit call for releasing camera and destroying all windows"""
